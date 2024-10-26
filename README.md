@@ -27,6 +27,8 @@ mkimage.py -w ./work/ -o ./out/ -c ./fydetabduo-image
 ```
 
 ## the mkimage.py script
+I copied the mkimage.py script from the [BredOS/mkimage](https://github.com/BredOS/mkimage/commit/88358575e61cb8b9452f70c6dcdc3f099074f255) repository to this repository for convenience. 
+In addition, I added some comments to the script to make it easier to understand.
 
 To create an image for your chosen SBC, run the mkimage.py script with the appropriate arguments. The basic usage is:
 
