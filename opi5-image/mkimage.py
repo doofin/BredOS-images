@@ -11,6 +11,9 @@ import time
 import datetime
 import prettytable
 
+# Usage: python mkimage.py -w /path/to/work_dir -c /path/to/config_dir -o /path/to/out_dir
+# python mkimage.py -w workdir -c . -o outdir
+# mkdir workdir outdir
 parser = argparse.ArgumentParser(description="Create archlinux arm based images.")
 parser.add_argument("-w", "--work_dir", help="Directory to work in", required=True)
 parser.add_argument(
@@ -25,8 +28,31 @@ parser.add_argument(
 parser.add_argument("-o", "--out_dir", help="Folder to put output files", required=True)
 args = parser.parse_args()
 
-# specfic
 def mkcmds_opi5(): 
+    """
+    Executes a series of commands to create and configure an image for the OPI5 system.
+
+    The function performs the following steps:
+    1. Copies alarm image files to the installation directory.
+    2. Fixes permissions in the installation directory.
+    3. Installs packages using pacstrap.
+    4. Generates a machine ID.
+    5. Fixes permissions again in the installation directory.
+    6. Copies skeleton files to user directories.
+    7. Logs the partitioning process.
+    8. Calculates the root filesystem size.
+    9. Creates an image file with the specified filesystem and backend.
+    10. Partitions the image file.
+    11. Creates the mount directory if it does not exist.
+    12. Mounts the boot/EFI partition.
+    13. Copies files from the installation directory to the mount directory, retaining permissions.
+    14. Creates the extlinux configuration file.
+    15. Creates the fstab file.
+    16. Installs GRUB bootloader.
+    17. Unmounts the image backend and cleans up.
+    18. Compresses the image if compression is not disabled.
+    19. Cleans up the working directory.
+    """
     copyfiles(config_dir + "/alarmimg", cfg["install_dir"])
     fixperms(cfg["install_dir"])
     pacstrap_packages(pacman_conf, cfg["packages_file"], cfg["install_dir"])
@@ -86,7 +112,7 @@ def verify_config():
     if not os.path.exists(work_dir):
         os.mkdir(work_dir)
     sys.path.insert(0, work_dir)
-    subprocess.run(["cp", config_dir + "/profiledef", work_dir + "/profiledef.py"])
+    # subprocess.run(["cp", config_dir + "/profiledef", work_dir + "/profiledef.py"])
 
     import profiledef  # type: ignore
 
