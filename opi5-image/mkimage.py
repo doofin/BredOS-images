@@ -79,7 +79,9 @@ def mkcmds_opi5(cfg):
     copyfiles(config_dir + "/alarmimg", cfg["install_dir"])
     fixperms(cfg["install_dir"])
     
-    print("Running pacstrap to install packages")
+    # install packages like linux kernel, etc.
+    print("add arm apps and arm kernel packages from archlinuxarm and bredos mirrorlist")
+    # specify archlinuxarm and bredos mirrorlist for arm apps and arm kernel
     pacman_conf = cfg["pacman_conf"]
     pacstrap_packages(pacman_conf, cfg["packages_file"], cfg["install_dir"])
     
@@ -284,20 +286,13 @@ def fixperms(target):
 def pacstrap_packages(pacman_conf, packages_file, install_dir) -> None:
     """
     Installs packages into a specified directory using the pacstrap utility.
+    This function reads a list of packages from a file and installs them into the specified directory.
+    Like linux kernel, etc.
 
     Args:
-        pacman_conf (str): Path to the pacman configuration file.
-        packages_file (str): Path to the file containing a list of packages to install.
+        pacman_conf (str): pacman configuration file, like pacman.conf.aarch64.
+        packages_file (str): list of packages to install, like packages.aarch64.
         install_dir (str): Directory where the packages will be installed.
-
-    Returns:
-        None
-
-    Raises:
-        subprocess.CalledProcessError: If the pacstrap command fails.
-
-    Example:
-        pacstrap_packages('/etc/pacman.conf', 'packages.txt', '/mnt/install')
     """
     with open(packages_file) as f:
         packages = map(lambda package: package.strip(), f.readlines())
