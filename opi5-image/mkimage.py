@@ -11,6 +11,7 @@ import time
 import datetime
 import prettytable
 
+
 # Usage: python mkimage.py -w /path/to/work_dir -c /path/to/config_dir -o /path/to/out_dir
 # python mkimage.py -w workdir -c . -o outdir
 # mkdir workdir outdir
@@ -27,8 +28,22 @@ parser.add_argument(
 )
 parser.add_argument("-o", "--out_dir", help="Folder to put output files", required=True)
 args = parser.parse_args()
+# Convert relative path to absolute path
+def abspath(path):
+    return os.path.abspath(path)
 
-def mkcmds_opi5(): 
+
+work_dir = abspath(args.work_dir) + "/"
+config_dir = abspath(args.config_dir) + "/"
+out_dir = abspath(args.out_dir) + "/"
+mnt_dir = work_dir + "mnt/"
+if os.geteuid() != 0:
+    exit("Error: Run this script as root")
+LOGGING_FORMAT: str = "%(asctime)s [%(levelname)s] %(message)s (%(funcName)s)"
+LOGGING_DATE_FORMAT: str = "%H:%M:%S"
+
+# The main to create and configure an image for the orangepi 5
+def mkcmds_opi5(cfg): 
     """
     Executes a series of commands to create and configure an image for the OPI5 system.
 
@@ -53,9 +68,14 @@ def mkcmds_opi5():
     18. Compresses the image if compression is not disabled.
     19. Cleans up the working directory.
     """
+    print("Copying alarm image files to install directory")
     copyfiles(config_dir + "/alarmimg", cfg["install_dir"])
     fixperms(cfg["install_dir"])
+    
+    print("Running pacstrap to install packages")
+    pacman_conf = cfg["pacman_conf"]
     pacstrap_packages(pacman_conf, cfg["packages_file"], cfg["install_dir"])
+    
     machine_id()
     fixperms(cfg["install_dir"])
     copy_skel_to_users()
@@ -86,22 +106,10 @@ def mkcmds_opi5():
         compressimage(cfg["img_name"])
     cleanup(cfg["work_dir"])
 
-# Convert relative path to absolute path
-def abspath(path):
-    return os.path.abspath(path)
-
-
-work_dir = abspath(args.work_dir) + "/"
-config_dir = abspath(args.config_dir) + "/"
-out_dir = abspath(args.out_dir) + "/"
-mnt_dir = work_dir + "mnt/"
-if os.geteuid() != 0:
-    exit("Error: Run this script as root")
-LOGGING_FORMAT: str = "%(asctime)s [%(levelname)s] %(message)s (%(funcName)s)"
-LOGGING_DATE_FORMAT: str = "%H:%M:%S"
 
 
 def verify_config():
+    print("verify_config")
     cfg = dict()
     if not os.path.exists(config_dir):
         logging.error("Config directory " + config_dir + " does not exist")
@@ -196,6 +204,9 @@ def verify_config():
         logging.error("Image backend not supported use loop")
         exit(1)
 
+    pacman_conf = cfg["config_dir"] + "/pacman.conf." + cfg["arch"]
+    cfg["pacman_conf"] = pacman_conf
+
     with open(packages_file, "r") as f:
         packages = map(lambda package: package.strip(), f.readlines())
         packages = list(filter(lambda package: not package.startswith("#"), packages))
@@ -231,6 +242,7 @@ def realpath(item):
 
 
 def fixperms(target):
+    print("Fixing permissions")
     realtarget = realpath(target)
     for i in cfg["perms"].keys():
         if realpath(realtarget + i) != realtarget + (i if not i[-1] == "/" else i[:-1]):
@@ -259,6 +271,23 @@ def fixperms(target):
 
 
 def pacstrap_packages(pacman_conf, packages_file, install_dir) -> None:
+    """
+    Installs packages into a specified directory using the pacstrap utility.
+
+    Args:
+        pacman_conf (str): Path to the pacman configuration file.
+        packages_file (str): Path to the file containing a list of packages to install.
+        install_dir (str): Directory where the packages will be installed.
+
+    Returns:
+        None
+
+    Raises:
+        subprocess.CalledProcessError: If the pacstrap command fails.
+
+    Example:
+        pacstrap_packages('/etc/pacman.conf', 'packages.txt', '/mnt/install')
+    """
     with open(packages_file) as f:
         packages = map(lambda package: package.strip(), f.readlines())
         packages = list(
@@ -634,6 +663,8 @@ def machine_id():
 
 
 def main():
+    cfg = verify_config()
+    print("start mkimg main")
     logging.basicConfig(
         format="%(asctime)s %(levelname)s: %(message)s",
         datefmt=LOGGING_DATE_FORMAT,
@@ -661,7 +692,9 @@ def main():
     logging.info("               Image type:   " + cfg["img_type"])
     logging.info("          Image file name:   " + cfg["img_name"])
     logging.info("            Packages File:   " + cfg["packages_file"])
-    exec(cfg["mkcmds"])
+    cfg = verify_config()
+    mkcmds_opi5(cfg)
+    # exec(cfg["mkcmds"])
 
 
 def handler(signal_received, frame):
@@ -677,6 +710,7 @@ def handler(signal_received, frame):
         pass
     try:
         if cfg["img_backend"] == "loop":
+            ldev = next_loop()
             subprocess.run(["losetup", "-d", ldev])
     except:
         pass
@@ -684,13 +718,15 @@ def handler(signal_received, frame):
 
 
 def next_loop() -> str:
+    print("Finding next loop device")
     return subprocess.check_output(["losetup", "-f"]).decode("utf-8").strip("\n")
 
 
 if __name__ == "__main__":
+    print("mkimage started")
     cfg = verify_config()
-    if cfg["img_backend"] == "loop":
-        ldev = next_loop()
+    # if cfg["img_backend"] == "loop":
+        # ldev = next_loop()
     signal(SIGINT, handler)
     signal(SIGTERM, handler)
     # get start time
