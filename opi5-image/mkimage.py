@@ -578,13 +578,27 @@ def run_chroot_cmd(work_dir: str, cmd: list) -> None:
 
 
 def grub_install(mnt_dir: str, arch: str ="arm64-efi") -> None:
+    """
+    Installs and configures GRUB bootloader on the specified mount directory.
+
+    This function modifies the GRUB configuration file to set the kernel command line
+    parameters and optionally specify a device tree blob (DTB) file. It then installs
+    the GRUB bootloader and generates the GRUB configuration file.
+
+    Args:
+        mnt_dir (str): The mount directory where the GRUB configuration file is located.
+        arch (str, optional): The target architecture for GRUB installation. Defaults to "arm64-efi".
+    """
     grubfile = open(mnt_dir + "/etc/default/grub")
     grubconf = grubfile.read()
     grubfile.close()
     grubcmdl = cfg["grubcmdl"]
+    # use grub to pass the device tree blob to the kernel
     grubdtb = cfg["grubdtb"]
     grubconf = grubconf.replace('GRUB_CMDLINE_LINUX_DEFAULT="loglevel=3 quiet"', f'GRUB_CMDLINE_LINUX_DEFAULT="{grubcmdl}"')
     if grubdtb:
+        # example: "dtbs/rockchip/rk3588s-orangepi-5.dtb"
+        # which comes from the kernel package after installation in chroot env
         grubconf = grubconf.replace('# GRUB_DTB="path_to_dtb_file"', f'GRUB_DTB="{grubdtb}"')
     grubfile = open(mnt_dir + "/etc/default/grub", "w")
     grubfile.write(grubconf)
