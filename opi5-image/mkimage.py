@@ -10,7 +10,7 @@ import sys
 import time
 import datetime
 import prettytable
-
+import pprint
 
 # Usage: python mkimage.py -w /path/to/work_dir -c /path/to/config_dir -o /path/to/out_dir
 # python mkimage.py -w workdir -c . -o outdir
@@ -51,10 +51,12 @@ def mkcmds_opi5(cfg):
     1. Copies alarm image files to the installation directory.
     2. Fixes permissions in the installation directory.
     3. Installs packages using pacstrap.
+    
     4. Generates a machine ID.
     5. Fixes permissions again in the installation directory.
     6. Copies skeleton files to user directories.
     7. Logs the partitioning process.
+    
     8. Calculates the root filesystem size.
     9. Creates an image file with the specified filesystem and backend.
     10. Partitions the image file.
@@ -63,11 +65,16 @@ def mkcmds_opi5(cfg):
     13. Copies files from the installation directory to the mount directory, retaining permissions.
     14. Creates the extlinux configuration file.
     15. Creates the fstab file.
+    
     16. Installs GRUB bootloader.
     17. Unmounts the image backend and cleans up.
     18. Compresses the image if compression is not disabled.
     19. Cleans up the working directory.
     """
+    print("configs from mkcmds_opi5")
+    pp = pprint.PrettyPrinter(indent=4)
+    cfg["mkcmds"] = "" # don't run mkcmds since it's already copied here
+    pp.pprint(cfg)
     print("Copying alarm image files to install directory")
     copyfiles(config_dir + "/alarmimg", cfg["install_dir"])
     fixperms(cfg["install_dir"])
@@ -79,7 +86,8 @@ def mkcmds_opi5(cfg):
     machine_id()
     fixperms(cfg["install_dir"])
     copy_skel_to_users()
-    logging.info("Partitioning rock5b")
+    
+    logging.info("Partitioning rock5b and creating rootfs")
     rootfs_size = int(
         subprocess.check_output(["du", "-s", "--exclude=proc", cfg["install_dir"]])
         .split()[0]
@@ -97,10 +105,13 @@ def mkcmds_opi5(cfg):
     copyfiles(cfg["install_dir"], mnt_dir, retainperms=True)
     create_extlinux_conf(mnt_dir, cfg["configtxt"], cfg["cmdline"], ldev)
     create_fstab(cfg["fs"], ldev)
+    
+    print("Installing GRUB bootloader")
     grub_install(mnt_dir)
     unmount(cfg["img_backend"], mnt_dir, ldev)
     cleanup(cfg["img_backend"])
     if args.no_compress:
+        print(f"Copying image to {cfg['img_name']}.img")
         copyimage(cfg["img_name"])
     else:
         compressimage(cfg["img_name"])

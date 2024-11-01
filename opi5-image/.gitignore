@@ -1,5 +1,7 @@
 .img
 **/out
 **/work
+**/workdir
+**/outdir
 .img.xz
 .log
