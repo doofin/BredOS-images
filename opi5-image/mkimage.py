@@ -152,7 +152,7 @@ def verify_config():
     cfg["img_type"] = profiledef.img_type
     cfg["img_version"] = profiledef.img_version
     cfg["perms"] = profiledef.perms
-    cfg["mkcmds"] = profiledef.mkcmds
+    # cfg["mkcmds"] = profiledef.mkcmds
     try:
         cfg["grubcmdl"] = profiledef.grubcmdl
         cfg["grubdtb"] = profiledef.grubdtb
@@ -419,6 +419,8 @@ def partition(disk, fs, img_size, partition_table, split=False, has_uefi=False):
 
     if not split:
         for i in cfg["partition_suffix"](config_dir, disk):
+            print(f"running partition_suffix in profiledef: ${i}")
+            print(f"for disk: {disk}")
             subprocess.run(i)
 
     if not os.path.exists(mnt_dir):
