@@ -342,6 +342,7 @@ def makeimg(size, fs, img_name, backend):
 
 
 def partition(disk, fs, img_size, partition_table, split=False, has_uefi=False):
+    print("start partition function")
     table = [["Partition", "Start", "End", "Size", "Filesystem"]]
     if has_uefi:
         prtd_cmd = [
@@ -394,6 +395,7 @@ def partition(disk, fs, img_size, partition_table, split=False, has_uefi=False):
                 ld_partition_table[i][1],
             ]
 
+    print("showing table for partition")
     table_pretty = prettytable.PrettyTable(table[0])
     for row in table[1:]:
         table_pretty.add_row(row)
@@ -404,8 +406,12 @@ def partition(disk, fs, img_size, partition_table, split=False, has_uefi=False):
         )
     )
 
+# dd: failed to open '/usr/share/edk2/devel/orangepi-5/orangepi-5_UEFI_Release_latest.img': No such file or directory
+
     if not split:
         for i in cfg["partition_prefix"](config_dir, disk):
+            print(f"running partition_prefix in profiledef: ${i}")
+            print(f"for disk: {disk}")
             subprocess.run(i)
 
     logging.info(f"Full command: {prtd_cmd}")
@@ -732,7 +738,7 @@ def handler(signal_received, frame):
         pass
     try:
         if cfg["img_backend"] == "loop":
-            ldev = next_loop()
+            # ldev = next_loop()
             subprocess.run(["losetup", "-d", ldev])
     except:
         pass
@@ -747,8 +753,8 @@ def next_loop() -> str:
 if __name__ == "__main__":
     print("mkimage started")
     cfg = verify_config()
-    # if cfg["img_backend"] == "loop":
-        # ldev = next_loop()
+    if cfg["img_backend"] == "loop":
+        ldev = next_loop()
     signal(SIGINT, handler)
     signal(SIGTERM, handler)
     # get start time

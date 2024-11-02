@@ -31,7 +31,7 @@ partition_table = lambda img_size, fs: {
 }
 
 partition_prefix = lambda config_dir, disk: [
-    ["dd", "if=/usr/share/edk2/devel/orangepi-5/orangepi-5_UEFI_Release_latest.img", "of=" + disk, "bs=512"],
+    ["dd", "if=./orangepi-5_UEFI_Release_v0.11.3.img", "of=" + disk, "bs=512"],
     ["partprobe", disk],
     ["sgdisk", "-e", disk],
     ["partprobe", disk],
@@ -57,38 +57,3 @@ perms = {
     "/home/bred/": ["1001", "1001", "750"],
     "/home": ["0", "0", "755"],
 }
-
-mkcmds = """
-copyfiles(config_dir + "/alarmimg", cfg["install_dir"])
-fixperms(cfg["install_dir"])
-pacstrap_packages(pacman_conf, cfg["packages_file"], cfg["install_dir"])
-machine_id()
-fixperms(cfg["install_dir"])
-copy_skel_to_users()
-logging.info("Partitioning rock5b")
-rootfs_size = int(
-    subprocess.check_output(["du", "-s", "--exclude=proc", cfg["install_dir"]])
-    .split()[0]
-    .decode("utf-8")
-)
-img_size, ldev = makeimg(
-    rootfs_size, cfg["fs"], cfg["img_name"], cfg["img_backend"]
-)
-partition(
-    ldev, cfg["fs"], img_size, cfg["partition_table"](img_size, cfg["fs"]), has_uefi=cfg["has_uefi"]
-)
-if not os.path.exists(mnt_dir):
-    os.mkdir(mnt_dir)
-subprocess.run("mount " + ldev + "p2 " + mnt_dir + "/boot/efi", shell=True)
-copyfiles(cfg["install_dir"], mnt_dir, retainperms=True)
-create_extlinux_conf(mnt_dir, cfg["configtxt"], cfg["cmdline"], ldev)
-create_fstab(cfg["fs"], ldev)
-grub_install(mnt_dir)
-unmount(cfg["img_backend"], mnt_dir, ldev)
-cleanup(cfg["img_backend"])
-if args.no_compress:
-    copyimage(cfg["img_name"])
-else:
-    compressimage(cfg["img_name"])
-cleanup(cfg["work_dir"])
-"""
