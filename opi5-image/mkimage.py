@@ -37,7 +37,7 @@ def abspath(path):
 work_dir = abspath(args.work_dir) + "/"
 config_dir = abspath(args.config_dir) + "/"
 out_dir = abspath(args.out_dir) + "/"
-mnt_dir = work_dir + "mnt/"
+image_mount_dir = work_dir + "mnt/"
 if os.geteuid() != 0:
     exit("Error: Run this script as root")
 LOGGING_FORMAT: str = "%(asctime)s [%(levelname)s] %(message)s (%(funcName)s)"
@@ -104,28 +104,28 @@ def mkcmds_opi5(cfg):
     )
     # end doing calculations
     # create image file and partition
-    img_size, ldev = makeimg(
+    img_size, loopDevice = makeimg(
         rootfs_size, cfg["fs"], cfg["img_name"], cfg["img_backend"]
     )
     partition(
-        ldev, cfg["fs"], img_size, cfg["partition_table"](img_size, cfg["fs"]), has_uefi=cfg["has_uefi"]
+        loopDevice, cfg["fs"], img_size, cfg["partition_table"](img_size, cfg["fs"]), has_uefi=cfg["has_uefi"]
     )
-    if not os.path.exists(mnt_dir):
-        os.mkdir(mnt_dir)
+    if not os.path.exists(image_mount_dir):
+        os.mkdir(image_mount_dir)
     # mount boot/EFI partition and copy files from install_dir to loop device
-    subprocess.run("mount " + ldev + "p2 " + mnt_dir + "/boot/efi", shell=True)
+    subprocess.run("mount " + loopDevice + "p2 " + image_mount_dir + "/boot/efi", shell=True)
     # copy files from install_dir to mnt_dir(loop device for image file)
-    copyfiles(install_dir, mnt_dir, retainperms=True)
+    copyfiles(install_dir, image_mount_dir, retainperms=True)
     # put the kernel and initramfs in the boot directory
-    create_extlinux_conf(mnt_dir, cfg["configtxt"], cfg["cmdline"], ldev)
+    create_extlinux_conf(image_mount_dir, cfg["configtxt"], cfg["cmdline"], loopDevice)
     # set up fstab, e.g. btrfs
-    create_fstab(cfg["fs"], ldev)
+    create_fstab(cfg["fs"], loopDevice)
     
     print("Installing GRUB bootloader")
-    grub_install(mnt_dir)
+    grub_install(image_mount_dir)
 
     # finish up and clean up
-    unmount(cfg["img_backend"], mnt_dir, ldev)
+    unmount(cfg["img_backend"], image_mount_dir, loopDevice)
     cleanup(cfg["img_backend"])
     if args.no_compress:
         print(f"Copying image to {cfg['img_name']}.img")
@@ -437,35 +437,35 @@ def partition(disk, fs, img_size, partition_table, split=False, has_uefi=False):
             print(f"for disk: {disk}")
             subprocess.run(i)
 
-    if not os.path.exists(mnt_dir):
-        os.mkdir(mnt_dir)
+    if not os.path.exists(image_mount_dir):
+        os.mkdir(image_mount_dir)
 
     idf = "p3" if has_uefi else ("p2" if not split else "p1")
 
     if fs == "ext4":
         subprocess.run("mkfs.ext4 -F -L PRIMARY " + disk + idf, shell=True)
-        subprocess.run("mount " + disk + idf + " " + mnt_dir, shell=True)
-        os.mkdir(mnt_dir + "/boot")
+        subprocess.run("mount " + disk + idf + " " + image_mount_dir, shell=True)
+        os.mkdir(image_mount_dir + "/boot")
         if has_uefi:
-            os.mkdir(mnt_dir + "/boot/efi")
+            os.mkdir(image_mount_dir + "/boot/efi")
     elif fs == "btrfs":
         p2 = disk + idf + " "
         subprocess.run("mkfs.btrfs -f -L ROOTFS " + p2, shell=True)
-        subprocess.run("mount -t btrfs -o compress=zstd " + p2 + mnt_dir, shell=True)
+        subprocess.run("mount -t btrfs -o compress=zstd " + p2 + image_mount_dir, shell=True)
         for i in ["/@", "/@home", "/@log", "/@pkg", "/@.snapshots"]:
-            subprocess.run("btrfs su cr " + mnt_dir + i, shell=True)
+            subprocess.run("btrfs su cr " + image_mount_dir + i, shell=True)
         subprocess.run("umount " + p2, shell=True)
         subprocess.run(
-            "mount -t btrfs -o compress=zstd,subvol=@ " + p2 + mnt_dir, shell=True
+            "mount -t btrfs -o compress=zstd,subvol=@ " + p2 + image_mount_dir, shell=True
         )
-        os.mkdir(mnt_dir + "/home")
+        os.mkdir(image_mount_dir + "/home")
         subprocess.run(
-            "mount -t btrfs -o compress=zstd,subvol=@home " + p2 + mnt_dir + "/home",
+            "mount -t btrfs -o compress=zstd,subvol=@home " + p2 + image_mount_dir + "/home",
             shell=True,
         )
-        os.mkdir(mnt_dir + "/boot")
+        os.mkdir(image_mount_dir + "/boot")
         if has_uefi:
-            os.mkdir(mnt_dir + "/boot/efi")
+            os.mkdir(image_mount_dir + "/boot/efi")
 
     logging.info("Partitioned successfully")
 
@@ -479,10 +479,10 @@ def create_fstab(fs, ldev, ldev_alt=None, simple_vfat=False) -> None:
         id2 = get_fsline((ldev_alt + "p1") if ldev_alt is not None else (ldev + "p2"))
 
     if fs == "ext4":
-        with open(mnt_dir + "/etc/fstab", "a") as f:
+        with open(image_mount_dir + "/etc/fstab", "a") as f:
             f.write(id1 + " / ext4 defaults 0 0\n")
     else:
-        with open(mnt_dir + "/etc/fstab", "a") as f:
+        with open(image_mount_dir + "/etc/fstab", "a") as f:
             f.write(
                 id2
                 + " /"
@@ -516,7 +516,7 @@ def create_fstab(fs, ldev, ldev_alt=None, simple_vfat=False) -> None:
                 + "btrfs rw,relatime,ssd,discard=async,compress=zstd,"
                 + "space_cache=v2,subvol=/@log 0 0\n"
             )
-    with open(mnt_dir + "/etc/fstab", "a") as f:
+    with open(image_mount_dir + "/etc/fstab", "a") as f:
         if cfg["has_uefi"]:
             boot_fs = get_parttype(ldev + "p2")
             mount_point = "/boot/efi"
@@ -745,7 +745,7 @@ def handler(signal_received, frame):
     # Handle any cleanup here
     logging.error("SIGINT or CTRL-C detected. Exiting gracefully")
     try:
-        subprocess.run(["umount", "-R", mnt_dir])
+        subprocess.run(["umount", "-R", image_mount_dir])
     except:
         pass
     try:
