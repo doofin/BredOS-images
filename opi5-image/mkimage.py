@@ -48,54 +48,63 @@ def mkcmds_opi5(cfg):
     """
     Executes a series of commands to create and configure an image for the OPI5 system.
 
-    The function performs the following steps:
+    prepare files and calculate sizes:
     1. Copies alarm image files to the installation directory.
     2. Fixes permissions in the installation directory.
     3. Installs packages using pacstrap.
-    
     4. Generates a machine ID.
     5. Fixes permissions again in the installation directory.
     6. Copies skeleton files to user directories.
     7. Logs the partitioning process.
     
+    create image file and partition:
     8. Calculates the root filesystem size.
     9. Creates an image file with the specified filesystem and backend.
     10. Partitions the image file.
     11. Creates the mount directory if it does not exist.
     12. Mounts the boot/EFI partition.
+
+    copyfiles:
     13. Copies files from the installation directory to the mount directory, retaining permissions.
     14. Creates the extlinux configuration file.
     15. Creates the fstab file.
-    
     16. Installs GRUB bootloader.
+
+    cleanup:
     17. Unmounts the image backend and cleans up.
     18. Compresses the image if compression is not disabled.
-    19. Cleans up the working directory.
     """
     print("configs from mkcmds_opi5")
     pp = pprint.PrettyPrinter(indent=4)
     cfg["mkcmds"] = "" # don't run mkcmds since it's already copied here
     pp.pprint(cfg)
+    install_dir = cfg["install_dir"]
+    print("install_dir: " + install_dir)
+
+    # 
     print("Copying alarm image files to install directory")
-    copyfiles(config_dir + "/alarmimg", cfg["install_dir"])
-    fixperms(cfg["install_dir"])
+    copyfiles(config_dir + "/alarmimg", install_dir)
+    fixperms(install_dir)
     
     # install packages like linux kernel, etc.
     print("add arm apps and arm kernel packages from archlinuxarm and bredos mirrorlist")
     # specify archlinuxarm and bredos mirrorlist for arm apps and arm kernel
     pacman_conf = cfg["pacman_conf"]
-    pacstrap_packages(pacman_conf, cfg["packages_file"], cfg["install_dir"])
+    pacstrap_packages(pacman_conf, cfg["packages_file"], install_dir)
+    print(f"finished installing packages in {install_dir}")
     
     machine_id()
-    fixperms(cfg["install_dir"])
+    fixperms(install_dir)
     copy_skel_to_users()
     
     logging.info("Partitioning rock5b and creating rootfs")
     rootfs_size = int(
-        subprocess.check_output(["du", "-s", "--exclude=proc", cfg["install_dir"]])
+        subprocess.check_output(["du", "-s", "--exclude=proc", install_dir])
         .split()[0]
         .decode("utf-8")
     )
+    # end doing calculations
+    # create image file and partition
     img_size, ldev = makeimg(
         rootfs_size, cfg["fs"], cfg["img_name"], cfg["img_backend"]
     )
@@ -104,13 +113,19 @@ def mkcmds_opi5(cfg):
     )
     if not os.path.exists(mnt_dir):
         os.mkdir(mnt_dir)
+    # mount boot/EFI partition and copy files from install_dir to loop device
     subprocess.run("mount " + ldev + "p2 " + mnt_dir + "/boot/efi", shell=True)
-    copyfiles(cfg["install_dir"], mnt_dir, retainperms=True)
+    # copy files from install_dir to mnt_dir(loop device for image file)
+    copyfiles(install_dir, mnt_dir, retainperms=True)
+    # put the kernel and initramfs in the boot directory
     create_extlinux_conf(mnt_dir, cfg["configtxt"], cfg["cmdline"], ldev)
+    # set up fstab, e.g. btrfs
     create_fstab(cfg["fs"], ldev)
     
     print("Installing GRUB bootloader")
     grub_install(mnt_dir)
+
+    # finish up and clean up
     unmount(cfg["img_backend"], mnt_dir, ldev)
     cleanup(cfg["img_backend"])
     if args.no_compress:
