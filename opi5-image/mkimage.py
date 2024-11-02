@@ -15,7 +15,7 @@ import pprint
 # Usage: python mkimage.py -w /path/to/work_dir -c /path/to/config_dir -o /path/to/out_dir
 # sudo -E python3 mkimage.py -w workdir -c . -o outdir
 # mkdir workdir outdir
-# sudo pacman-key --recv-keys 1BEF1BCEBA58EA33 && sudo pacman-key --lsign-key 1BEF1BCEBA58EA33
+# ok, created image file under BredOS-images/opi5-image/outdir/
 parser = argparse.ArgumentParser(description="Create archlinux arm based images.")
 parser.add_argument("-w", "--work_dir", help="Directory to work in", required=True)
 parser.add_argument(
