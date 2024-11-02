@@ -56,18 +56,17 @@ def mkcmds_opi5(cfg):
     5. Fixes permissions again in the installation directory.
     6. Copies skeleton files to user directories.
     7. Logs the partitioning process.
+    8. Calculates the root filesystem size.
     
     create image file and partition:
-    8. Calculates the root filesystem size.
-    9. Creates an image file with the specified filesystem and backend.
+    9. Creates an image file
     10. Partitions the image file.
-    11. Creates the mount directory if it does not exist.
     12. Mounts the boot/EFI partition.
 
     copyfiles:
-    13. Copies files from the installation directory to the mount directory, retaining permissions.
-    14. Creates the extlinux configuration file.
-    15. Creates the fstab file.
+    mount the created image file as a loop device
+    13. Copies files from install_dir to the image loop device.
+    14. Creates the extlinux confg, fstab, 
     16. Installs GRUB bootloader.
 
     cleanup:
