@@ -34,10 +34,16 @@ LocalFileSigLevel = Optional
 # RemoteFileSigLevel = Required
 
 [BredOS]
-Include = /etc/pacman.d/bredos-mirrorlist
+# BredOS Main mirror
+# https://repo.bredos.org/repo/BredOS/aarch64/
+# due to pgp key issues, we need to disable signature checking
+SigLevel = Never
+Server = https://repo.bredos.org/repo/$repo/$arch
 
 [BredOS-any]
-Include = /etc/pacman.d/bredos-mirrorlist
+# https://repo.bredos.org/test-repo/BredOS-any/any/
+SigLevel = Never 
+Server = https://repo.bredos.org/repo/$repo/$arch
 
 [core]
 Server = http://dk.mirror.archlinuxarm.org/$arch/$repo
