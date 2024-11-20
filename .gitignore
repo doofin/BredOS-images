@@ -1,3 +1,6 @@
 mkimage.log
 /out
 /work
+/workdir
+
+*.pyc
